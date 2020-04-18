@@ -22,4 +22,4 @@ after_success:                # script 阶段成功时执行，构建失败不�
   - git config --local user.name "frank.yang"
   - git config --local user.email "frank.yang@gmail.com"
   - sed -i'' "s~git@github.com:~https://${GH_TOKEN}@github.com/~" _config.yml
-  - hexo deploy > /dev/null   # 通过 Hexo 的 deploy 命令部署博客
+  - hexo deploy   # 通过 Hexo 的 deploy 命令部署博客
