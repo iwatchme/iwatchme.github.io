@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Rxjava中的线程调度器(Scheduler)原理Rxjava为了开发人员可以更加方便地来回切换线程，满足不同的业务需求，引入了线程调度器(scheduler)。Rxjava中的线程调度器主要由操作符来实现：ObserveOn以及SubscribeOn。 其中 SubscribeOn 用来表明原始数据源(source observable)会在哪个线程开始发射数据，无论 SubscribeOn">
+<meta name="keywords" content="android rxjava">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Rxjava中的线程调度器">
+<meta property="og:url" content="http://yoursite.com/2017/02/01/Rxjava中的线程调度器/index.html">
+<meta property="og:site_name" content="iwatchme&#39;s blog">
+<meta property="og:description" content="Rxjava中的线程调度器(Scheduler)原理Rxjava为了开发人员可以更加方便地来回切换线程，满足不同的业务需求，引入了线程调度器(scheduler)。Rxjava中的线程调度器主要由操作符来实现：ObserveOn以及SubscribeOn。 其中 SubscribeOn 用来表明原始数据源(source observable)会在哪个线程开始发射数据，无论 SubscribeOn">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="http://yoursite.com/2017/02/01/Rxjava中的线程调度器/img/1FEEDE8F52EAE27749C43C73260E82D2.png">
+<meta property="og:image" content="http://yoursite.com/2017/02/01/Rxjava中的线程调度器/img/646B53D9F7DD1A76239ECF930D8A6784.png">
+<meta property="og:image" content="http://yoursite.com/2017/02/01/Rxjava中的线程调度器/img/DAA0A2869BDD84862E3D7661572F8BF1.png">
+<meta property="og:image" content="http://yoursite.com/2017/02/01/Rxjava中的线程调度器/img/D982158A9260B8A24625A3C5F8F2848D.png">
+<meta property="og:updated_time" content="2020-04-19T03:19:14.050Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Rxjava中的线程调度器">
+<meta name="twitter:description" content="Rxjava中的线程调度器(Scheduler)原理Rxjava为了开发人员可以更加方便地来回切换线程，满足不同的业务需求，引入了线程调度器(scheduler)。Rxjava中的线程调度器主要由操作符来实现：ObserveOn以及SubscribeOn。 其中 SubscribeOn 用来表明原始数据源(source observable)会在哪个线程开始发射数据，无论 SubscribeOn">
+<meta name="twitter:image" content="http://yoursite.com/2017/02/01/Rxjava中的线程调度器/img/1FEEDE8F52EAE27749C43C73260E82D2.png">
+
+<link rel="canonical" href="http://yoursite.com/2017/02/01/Rxjava中的线程调度器/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>Rxjava中的线程调度器 | iwatchme's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">iwatchme's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">never stop chasing your dream!!!</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/02/01/Rxjava中的线程调度器/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="frank.yang">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="iwatchme's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Rxjava中的线程调度器
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-02-01 16:38:28" itemprop="dateCreated datePublished" datetime="2017-02-01T16:38:28+08:00">2017-02-01</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-04-19 11:19:14" itemprop="dateModified" datetime="2020-04-19T11:19:14+08:00">2020-04-19</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Rxjava中的线程调度器-Scheduler"><a href="#Rxjava中的线程调度器-Scheduler" class="headerlink" title="Rxjava中的线程调度器(Scheduler)"></a>Rxjava中的线程调度器(Scheduler)</h1><h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><p>Rxjava为了开发人员可以更加方便地来回切换线程，满足不同的业务需求，引入了线程调度器(scheduler)。Rxjava中的线程调度器主要由操作符来实现：<strong>ObserveOn</strong>以及<strong>SubscribeOn</strong>。</p>
+<p>其中 <strong>SubscribeOn</strong> 用来表明原始数据源(source observable)会在哪个线程开始发射数据，无论 <strong>SubscribeOn</strong> 在整个调用链的哪个位置开始被调用。如果多次被调用的话，按照就近(the left-most)原则,最靠近数据源的那个 <strong>SubscribeOn</strong> 会被调用，因此通常来说只会有一个<strong>SubscribeOn</strong>操作符。</p>
+<p><strong>ObserveOn</strong> 则用来在整个调用链中切换线程。一个<strong>ObserveOn</strong> 操作符会影响调用链中在它以下操作符的调用线程，直到碰到另一个<strong>ObserveOn</strong>，因此，因此通常来说会有多个<strong>ObserveOn</strong> 操作符。</p>
+<p>下图是Scheduler的官方示意图，按照上面的就是可以非常容易地理解该图。<br><img src="img/1FEEDE8F52EAE27749C43C73260E82D2.png" alt></p>
+<h3 id="举例"><a href="#举例" class="headerlink" title="举例"></a>举例</h3><p>首先举例说明<strong>SubscribeOn</strong>操作符, 可以看到我们在代码里有两个<strong>SubscribeOn</strong>操作符，一前一后分别对应Schedulers.io()和Schedulers.computation()，可以看到最终整个调用链都在Schedulers.io()中执行，符合之前所说的就近原则。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">Observable.just(<span class="string">"frank"</span>, <span class="string">"tom"</span>, <span class="string">"Gamma"</span>)</span><br><span class="line">        .map(s -&gt; s.length())</span><br><span class="line">        .subscribeOn(Schedulers.io())</span><br><span class="line">        .map(integer -&gt; integer+<span class="number">10</span>)</span><br><span class="line">        .subscribeOn(Schedulers.computation())</span><br><span class="line">        .subscribe(integer -&gt; &#123;</span><br><span class="line">           Log.e(<span class="string">"Frank"</span>, String.valueOf(integer));</span><br><span class="line">           Log.e(<span class="string">"Frank"</span>, Thread.currentThread().getName());</span><br><span class="line">        &#125;);</span><br></pre></td></tr></table></figure>
+<p><img src="img/646B53D9F7DD1A76239ECF930D8A6784.png" alt></p>
+<p>其次我们来看一下<strong>ObserveOn</strong>操作符。例子中有一个<strong>ObserveOn</strong>操作符，作用是切换到computation线程上。从最终的结果可以看出在操作符前面的调用链都是在主线程上的，而之后的调用链则切换到了computation线程上。至于computation，io线程是什么我们会在下面进行解释。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">Observable.range(<span class="number">1</span>, <span class="number">3</span>)</span><br><span class="line">        .map(integer -&gt; integer * <span class="number">10</span>)</span><br><span class="line">        .doOnNext(integer -&gt; &#123;</span><br><span class="line">            Log.e(<span class="string">"Frank"</span>, <span class="string">"emmit: "</span>+ integer + <span class="string">" in thread: "</span>+ Thread.currentThread().getName());</span><br><span class="line">        &#125;)</span><br><span class="line">        .observeOn(Schedulers.computation())</span><br><span class="line">        .map(integer -&gt; integer * <span class="number">10</span>)</span><br><span class="line">        .subscribe(integer -&gt; &#123;</span><br><span class="line">            Log.e(<span class="string">"Frank"</span>, <span class="string">"receive: "</span>+ integer + <span class="string">" in thread: "</span>+Thread.currentThread().getName());</span><br><span class="line">        &#125;);</span><br></pre></td></tr></table></figure>
+<p><img src="img/DAA0A2869BDD84862E3D7661572F8BF1.png" alt></p>
+<h3 id="源码解析"><a href="#源码解析" class="headerlink" title="源码解析"></a>源码解析</h3><p>在源码分析单元，我们分成两个部分：第一个部分是两个操作符的实现，第二个部分是Rxjava内置的部分线程。<br>首先我们来看<strong>SubscribeOn</strong>操作符。其实所有的关键只是在于 ScalarSynchronousObservable。这里ScalarSynchronousObservable相当于干了一件什么事呢？就是将<strong>SubscribeOn</strong>操作符上一级的observable和下一级的subscriber联系起来，同时将其放在scheduler指定的线程中执行。因此我们可以将上面的例子理解成这样去掉所有<strong>SubscribeOn</strong>调用符的调用链在第一个<strong>SubscribeOn</strong>调用符的线程中执行，这不就是就近原则吗？</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br></pre></td><td class="code"><pre><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">final</span> Observable&lt;T&gt; <span class="title">subscribeOn</span><span class="params">(Scheduler scheduler)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span> <span class="keyword">instanceof</span> ScalarSynchronousObservable) &#123;</span><br><span class="line">            <span class="keyword">return</span> ((ScalarSynchronousObservable&lt;T&gt;)<span class="keyword">this</span>).scalarScheduleOn(scheduler);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> nest().lift(<span class="keyword">new</span> OperatorSubscribeOn&lt;T&gt;(scheduler)); <span class="comment">//关键是这一句</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">final</span> Observable&lt;Observable&lt;T&gt;&gt; nest() &#123;</span><br><span class="line">        <span class="keyword">return</span> just(<span class="keyword">this</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">static</span> &lt;T&gt; <span class="function">Observable&lt;T&gt; <span class="title">just</span><span class="params">(<span class="keyword">final</span> T value)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> ScalarSynchronousObservable.create(value);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">ScalarSynchronousObservable</span>&lt;<span class="title">T</span>&gt; <span class="keyword">extends</span> <span class="title">Observable</span>&lt;<span class="title">T</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> &lt;T&gt; <span class="function">ScalarSynchronousObservable&lt;T&gt; <span class="title">create</span><span class="params">(T t)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> ScalarSynchronousObservable&lt;T&gt;(t); <span class="comment">//这时的t是上一级的observable</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> T t;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="title">ScalarSynchronousObservable</span><span class="params">(<span class="keyword">final</span> T t)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">super</span>(<span class="keyword">new</span> OnSubscribe&lt;T&gt;() &#123;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">call</span><span class="params">(Subscriber&lt;? <span class="keyword">super</span> T&gt; s)</span> </span>&#123;</span><br><span class="line">                s.onNext(t); <span class="comment">//s则是下面OperatorSubscribeOn中返回的subscriber</span></span><br><span class="line">                s.onCompleted();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">        &#125;);</span><br><span class="line">        <span class="keyword">this</span>.t = t;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">OperatorSubscribeOn</span>&lt;<span class="title">T</span>&gt; <span class="keyword">implements</span> <span class="title">Operator</span>&lt;<span class="title">T</span>, <span class="title">Observable</span>&lt;<span class="title">T</span>&gt;&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Scheduler scheduler;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">OperatorSubscribeOn</span><span class="params">(Scheduler scheduler)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.scheduler = scheduler;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Subscriber&lt;? <span class="keyword">super</span> Observable&lt;T&gt;&gt; call(<span class="keyword">final</span> Subscriber&lt;? <span class="keyword">super</span> T&gt; subscriber) &#123;</span><br><span class="line">        <span class="keyword">final</span> Worker inner = scheduler.createWorker(); <span class="comment">//从线程池取出对应的线程</span></span><br><span class="line">        subscriber.add(inner);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> Subscriber&lt;Observable&lt;T&gt;&gt;(subscriber) &#123;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onCompleted</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onError</span><span class="params">(Throwable e)</span> </span>&#123;</span><br><span class="line">                subscriber.onError(e);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onNext</span><span class="params">(<span class="keyword">final</span> Observable&lt;T&gt; o)</span> </span>&#123;</span><br><span class="line">                inner.schedule(<span class="keyword">new</span> Action0() &#123;</span><br><span class="line"></span><br><span class="line">                    <span class="meta">@Override</span></span><br><span class="line">                    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">call</span><span class="params">()</span> </span>&#123;</span><br><span class="line">                        <span class="keyword">final</span> Thread t = Thread.currentThread();</span><br><span class="line">                        <span class="comment">//这时的subscriber就是下一级的subscriber，o就是上面传下来的上一级的observable</span></span><br><span class="line">                        <span class="comment">//observable和subscriber重新订阅后，放入对应的线程中执行</span></span><br><span class="line">                        o.unsafeSubscribe(<span class="keyword">new</span> Subscriber&lt;T&gt;(subscriber) &#123;</span><br><span class="line"></span><br><span class="line">                            <span class="meta">@Override</span></span><br><span class="line">                            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onCompleted</span><span class="params">()</span> </span>&#123;</span><br><span class="line">                                subscriber.onCompleted();</span><br><span class="line">                            &#125;</span><br><span class="line"></span><br><span class="line">                            <span class="meta">@Override</span></span><br><span class="line">                            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onError</span><span class="params">(Throwable e)</span> </span>&#123;</span><br><span class="line">                                subscriber.onError(e);</span><br><span class="line">                            &#125;</span><br><span class="line"></span><br><span class="line">                            <span class="meta">@Override</span></span><br><span class="line">                            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onNext</span><span class="params">(T t)</span> </span>&#123;</span><br><span class="line">                                subscriber.onNext(t);</span><br><span class="line">                            &#125;</span><br><span class="line">                         &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">        &#125;;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其次我们来看<strong>ObserveOn</strong>操作符，这个操作符比较简单，当执行<strong>ObserveOn</strong>操作符时，这时会执行parent这个subscriber的onNext方法，这个方法中将下一级的subscriber放入<strong>ObserveOn</strong>指定的线程中执行其onNext方法，从而达到切换线程的目的。因此多次调用<strong>ObserveOn</strong>操作符多次切换线程也就比较容易解释了。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br></pre></td><td class="code"><pre><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">final</span> Observable&lt;T&gt; <span class="title">observeOn</span><span class="params">(Scheduler scheduler)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span> <span class="keyword">instanceof</span> ScalarSynchronousObservable) &#123;</span><br><span class="line">            <span class="keyword">return</span> ((ScalarSynchronousObservable&lt;T&gt;)<span class="keyword">this</span>).scalarScheduleOn(scheduler);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//这一句是关键</span></span><br><span class="line">        <span class="keyword">return</span> lift(<span class="keyword">new</span> OperatorObserveOn&lt;T&gt;(scheduler));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">OperatorObserveOn</span>&lt;<span class="title">T</span>&gt; <span class="keyword">implements</span> <span class="title">Operator</span>&lt;<span class="title">T</span>, <span class="title">T</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Scheduler scheduler;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> scheduler</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">OperatorObserveOn</span><span class="params">(Scheduler scheduler)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.scheduler = scheduler;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Subscriber&lt;? <span class="keyword">super</span> T&gt; call(Subscriber&lt;? <span class="keyword">super</span> T&gt; child) &#123;</span><br><span class="line">        <span class="keyword">if</span> (scheduler <span class="keyword">instanceof</span> ImmediateScheduler) &#123;</span><br><span class="line">            <span class="keyword">return</span> child;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (scheduler <span class="keyword">instanceof</span> TrampolineScheduler) &#123;</span><br><span class="line">            <span class="keyword">return</span> child;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">//这里产生了新的Subscriber</span></span><br><span class="line">            ObserveOnSubscriber&lt;T&gt; parent = <span class="keyword">new</span> ObserveOnSubscriber&lt;T&gt;(scheduler, child);</span><br><span class="line">            parent.init();</span><br><span class="line">            <span class="keyword">return</span> parent;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** Observe through individual queue per observer. */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">ObserveOnSubscriber</span>&lt;<span class="title">T</span>&gt; <span class="keyword">extends</span> <span class="title">Subscriber</span>&lt;<span class="title">T</span>&gt; </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> Subscriber&lt;? <span class="keyword">super</span> T&gt; child;</span><br><span class="line">        <span class="keyword">final</span> Scheduler.Worker recursiveScheduler;</span><br><span class="line">        <span class="keyword">final</span> Queue&lt;Object&gt; queue;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">volatile</span> Throwable error;</span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="title">ObserveOnSubscriber</span><span class="params">(Scheduler scheduler, Subscriber&lt;? <span class="keyword">super</span> T&gt; child)</span> </span>&#123;</span><br><span class="line">            <span class="keyword">this</span>.child = child;</span><br><span class="line">            <span class="keyword">this</span>.recursiveScheduler = scheduler.createWorker(); <span class="comment">//从线程池中产生线程</span></span><br><span class="line">            <span class="keyword">this</span>.scheduledUnsubscribe = <span class="keyword">new</span> ScheduledUnsubscribe(recursiveScheduler);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="function"><span class="keyword">void</span> <span class="title">init</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            ...</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onNext</span><span class="params">(<span class="keyword">final</span> T t)</span> </span>&#123;</span><br><span class="line">          <span class="comment">//将数据源t加入到queue中</span></span><br><span class="line">           <span class="keyword">if</span> (!queue.offer(on.next(t))) &#123;</span><br><span class="line">                onError(<span class="keyword">new</span> MissingBackpressureException());</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            schedule(); <span class="comment">//在生成的线程中执行下一级subscriber的onNext方法</span></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">final</span> Action0 action = <span class="keyword">new</span> Action0() &#123;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">call</span><span class="params">()</span> </span>&#123;</span><br><span class="line">                pollQueue();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">        &#125;;</span><br><span class="line"></span><br><span class="line">        <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">schedule</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            <span class="keyword">if</span> (COUNTER_UPDATER.getAndIncrement(<span class="keyword">this</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">                recursiveScheduler.schedule(action);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// only execute this from schedule()</span></span><br><span class="line">        <span class="function"><span class="keyword">void</span> <span class="title">pollQueue</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            <span class="keyword">int</span> emitted = <span class="number">0</span>;</span><br><span class="line">            do &#123;</span><br><span class="line">                counter = <span class="number">1</span>;</span><br><span class="line">                <span class="keyword">while</span> (!scheduledUnsubscribe.isUnsubscribed()) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (failure) &#123;</span><br><span class="line"></span><br><span class="line">                    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                        <span class="keyword">if</span> (REQUESTED.getAndDecrement(<span class="keyword">this</span>) != <span class="number">0</span>) &#123;</span><br><span class="line">                            <span class="comment">//从队列中取出数据</span></span><br><span class="line">                            Object o = queue.poll();</span><br><span class="line">                            <span class="keyword">if</span> (o == <span class="keyword">null</span>) &#123;</span><br><span class="line"></span><br><span class="line">                            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                              <span class="comment">//这里是真正执行下一集subscriber的onNext(o)方法</span></span><br><span class="line">                                <span class="keyword">if</span> (!on.accept(child, o)) &#123;</span><br><span class="line">                                    emitted++;</span><br><span class="line">                                &#125;</span><br><span class="line">                            &#125;</span><br><span class="line">                        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                            REQUESTED.incrementAndGet(<span class="keyword">this</span>);</span><br><span class="line">                            <span class="keyword">break</span>;</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; <span class="keyword">while</span> (COUNTER_UPDATER.decrementAndGet(<span class="keyword">this</span>) &gt; <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// request the number of items that we emitted in this poll loop</span></span><br><span class="line">            <span class="keyword">if</span> (emitted &gt; <span class="number">0</span>) &#123;</span><br><span class="line">                request(emitted);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>最后Rxjava中有好几种不同的schedulers，其具体实现已经超出了本文的范围，将会在后续文章中说明。我们可以再这边列出不同schedulers对应的具体代码文件为后续分析做准备。</p>
+<table>
+<thead>
+<tr>
+<th>Scheduler</th>
+<th style="text-align:center">对应具体实现类</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Schedulers.computation</td>
+<td style="text-align:center">EventLoopsScheduler</td>
+</tr>
+<tr>
+<td>Schedulers.immediate</td>
+<td style="text-align:center">ImmediateScheduler</td>
+</tr>
+<tr>
+<td>Schedulers.io</td>
+<td style="text-align:center">CachedThreadScheduler</td>
+</tr>
+<tr>
+<td>Schedulers.newThread</td>
+<td style="text-align:center">NewThreadScheduler</td>
+</tr>
+</tbody>
+</table>
+<p><img src="img/D982158A9260B8A24625A3C5F8F2848D.png" alt></p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><ol>
+<li><strong>ObserveOn</strong>操作符多次调用多次切换线程。</li>
+<li><strong>SubscribeOn</strong>操作符多次调用一次生效，就近原则。</li>
+</ol>
+<p>###参考文档<br>1.<a href="http://reactivex.io/documentation/scheduler.html" target="_blank" rel="noopener">http://reactivex.io/documentation/scheduler.html</a><br>2.<a href="http://tomstechnicalblog.blogspot.com/2016/02/rxjava-understanding-observeon-and.html" target="_blank" rel="noopener">http://tomstechnicalblog.blogspot.com/2016/02/rxjava-understanding-observeon-and.html</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/android-rxjava/" rel="tag"># android rxjava</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2016/12/23/Android事件分发机制/" rel="prev" title="Android事件分发机制">
+      <i class="fa fa-chevron-left"></i> Android事件分发机制
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Rxjava中的线程调度器-Scheduler"><span class="nav-number">1.</span> <span class="nav-text">Rxjava中的线程调度器(Scheduler)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#原理"><span class="nav-number">1.0.1.</span> <span class="nav-text">原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#举例"><span class="nav-number">1.0.2.</span> <span class="nav-text">举例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#源码解析"><span class="nav-number">1.0.3.</span> <span class="nav-text">源码解析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">1.0.4.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">frank.yang</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">4</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">tags</span>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">frank.yang</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/muse.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
