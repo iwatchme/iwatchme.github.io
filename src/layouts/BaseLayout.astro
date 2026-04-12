@@ -1,0 +1,78 @@
+---
+import "../styles/global.css";
+import { siteConfig } from "../site-config";
+
+interface Props {
+  title?: string;
+  description?: string;
+  pageType?: "website" | "article";
+  image?: string;
+}
+
+const {
+  title = siteConfig.title,
+  description = siteConfig.description,
+  pageType = "website",
+  image
+} = Astro.props as Props;
+
+const pageTitle = title === siteConfig.title ? title : `${title} | ${siteConfig.title}`;
+const canonical = new URL(Astro.url.pathname, siteConfig.siteUrl).toString();
+const socialImage = image ? new URL(image, siteConfig.siteUrl).toString() : undefined;
+const pathname = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang={siteConfig.locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#fff8ef" />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{pageTitle}</title>
+
+    <meta property="og:type" content={pageType} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={siteConfig.title} />
+    {socialImage && <meta property="og:image" content={socialImage} />}
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    {socialImage && <meta name="twitter:image" content={socialImage} />}
+    <slot name="head" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="page-shell__grain"></div>
+      <div class="page-shell__glow page-shell__glow--one"></div>
+      <div class="page-shell__glow page-shell__glow--two"></div>
+
+      <header class="site-header">
+        <a class="site-header__brand" href="/">
+          <span class="site-header__title">{siteConfig.title}</span>
+        </a>
+
+        <nav class="site-nav" aria-label="Primary">
+          {siteConfig.navigation.map((item) => (
+            <a
+              class={`site-nav__link${pathname === item.href ? " site-nav__link--active" : ""}`}
+              href={item.href}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </header>
+
+      <main class="page-main">
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

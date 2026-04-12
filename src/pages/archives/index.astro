@@ -1,0 +1,34 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { formatDate, getArchiveGroups, getPostUrl, sortPosts } from "../../utils/posts";
+
+const posts = sortPosts(
+  await getCollection("blog", ({ data }) => data.publish && !data.draft)
+);
+const archives = getArchiveGroups(posts);
+---
+
+<BaseLayout title="Archives" description="Browse the full archive of published posts.">
+  <section class="page-intro">
+    <p class="section__eyebrow">Archive</p>
+    <h1>All posts</h1>
+    <p>按年份回看已经发布的全部文章。</p>
+  </section>
+
+  <section class="archive-list">
+    {archives.map(({ year, entries }) => (
+      <div class="archive-group">
+        <h2>{year}</h2>
+        <ul class="archive-group__items">
+          {entries.map((post) => (
+            <li>
+              <a href={getPostUrl(post)}>{post.data.title}</a>
+              <time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </section>
+</BaseLayout>

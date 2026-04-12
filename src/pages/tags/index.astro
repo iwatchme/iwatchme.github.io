@@ -1,0 +1,27 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import TagChip from "../../components/TagChip.astro";
+import { getAllTags, getTagUrl, sortPosts } from "../../utils/posts";
+
+const posts = sortPosts(
+  await getCollection("blog", ({ data }) => data.publish && !data.draft)
+);
+const tags = getAllTags(posts);
+---
+
+<BaseLayout title="Tags" description="Browse published posts by tag.">
+  <section class="page-intro">
+    <p class="section__eyebrow">Index</p>
+    <h1>Tags</h1>
+    <p>按主题浏览已经发布的文章，适合快速回看某一类知识点。</p>
+  </section>
+
+  <section class="section">
+    <div class="tag-grid">
+      {tags.map(({ tag, count }) => (
+        <TagChip tag={tag} href={getTagUrl(tag)} count={count} />
+      ))}
+    </div>
+  </section>
+</BaseLayout>

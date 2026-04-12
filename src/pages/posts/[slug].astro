@@ -1,0 +1,87 @@
+---
+import { getCollection, render } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import TagChip from "../../components/TagChip.astro";
+import TableOfContents from "../../components/TableOfContents.astro";
+import MermaidRenderer from "../../components/MermaidRenderer.astro";
+import { formatDate, getPostSummary, getPostUrl, getTagUrl, sortPosts } from "../../utils/posts";
+
+export async function getStaticPaths() {
+  const posts = sortPosts(
+    await getCollection("blog", ({ data }) => data.publish && !data.draft)
+  );
+  return posts.map((post, index) => ({
+    params: { slug: post.slug },
+    props: {
+      post,
+      newer: posts[index - 1] ?? null,
+      older: posts[index + 1] ?? null
+    }
+  }));
+}
+
+const { post, newer, older } = Astro.props;
+const { Content, headings } = await render(post);
+const summary = getPostSummary(post);
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={summary}
+  pageType="article"
+>
+  <article class="article-shell">
+    <header class="article-hero">
+      <p class="article-hero__eyebrow">Post</p>
+      <h1>{post.data.title}</h1>
+      {summary && <p class="article-hero__description">{summary}</p>}
+
+      <div class="article-meta">
+        <span>
+          Published
+          <time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
+        </span>
+        {post.data.updatedDate && (
+          <span>
+            Updated
+            <time datetime={post.data.updatedDate.toISOString()}>
+              {formatDate(post.data.updatedDate)}
+            </time>
+          </span>
+        )}
+      </div>
+
+      <div class="tag-row">
+        {post.data.tags.map((tag) => (
+          <TagChip tag={tag} href={getTagUrl(tag)} />
+        ))}
+      </div>
+    </header>
+
+    <div class="article-grid">
+      <div class="article-content prose">
+        <Content />
+      </div>
+      <aside class="article-sidebar">
+        <TableOfContents headings={headings} />
+      </aside>
+    </div>
+
+    <footer class="article-footer">
+      {newer && (
+        <a class="article-footer__link" href={getPostUrl(newer)}>
+          <span>Newer</span>
+          <strong>{newer.data.title}</strong>
+        </a>
+      )}
+      {older && (
+        <a class="article-footer__link article-footer__link--align-end" href={getPostUrl(older)}>
+          <span>Older</span>
+          <strong>{older.data.title}</strong>
+        </a>
+      )}
+    </footer>
+  </article>
+
+  <MermaidRenderer />
+</BaseLayout>

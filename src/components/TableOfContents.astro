@@ -1,0 +1,21 @@
+---
+import type { MarkdownHeading } from "astro";
+
+const { headings = [] } = Astro.props as { headings: MarkdownHeading[] };
+const visibleHeadings = headings.filter((heading) => heading.depth >= 2 && heading.depth <= 3);
+---
+
+{
+  visibleHeadings.length > 0 && (
+    <nav class="toc-card" aria-label="Table of contents">
+      <p class="toc-card__eyebrow">On this page</p>
+      <ul class="toc-card__list">
+        {visibleHeadings.map((heading) => (
+          <li class={`toc-card__item toc-card__item--depth-${heading.depth}`}>
+            <a href={`#${heading.slug}`}>{heading.text}</a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}

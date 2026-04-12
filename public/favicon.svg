@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="iwatchme blog mark">
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffd38f" />
+      <stop offset="100%" stop-color="#b6532d" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#bg)" />
+  <path
+    d="M18 18h28v5H34v23h-6V23H18z"
+    fill="#1f2933"
+  />
+  <circle cx="47" cy="19" r="4" fill="#fff8ef" />
+</svg>

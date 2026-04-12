@@ -1,0 +1,264 @@
+<script type="module">
+  let initialized = false;
+  let lightboxBound = false;
+  const zoomState = {
+    scale: 1,
+    min: 0.6,
+    max: 3
+  };
+
+  function clampScale(value) {
+    return Math.min(zoomState.max, Math.max(zoomState.min, value));
+  }
+
+  function updateLightboxScale(nextScale) {
+    const lightbox = document.querySelector(".mermaid-lightbox");
+    const content = lightbox?.querySelector(".mermaid-lightbox__content");
+    const zoomLabel = lightbox?.querySelector(".mermaid-lightbox__zoom-label");
+    const svg = content?.querySelector("svg");
+
+    if (
+      !(lightbox instanceof HTMLDialogElement) ||
+      !(content instanceof HTMLDivElement) ||
+      !(zoomLabel instanceof HTMLButtonElement) ||
+      !(svg instanceof SVGSVGElement)
+    ) {
+      return;
+    }
+
+    const scale = clampScale(nextScale);
+    const baseWidth = Number(svg.dataset.baseWidth || 0);
+    const baseHeight = Number(svg.dataset.baseHeight || 0);
+
+    if (baseWidth > 0) {
+      svg.style.width = `${baseWidth * scale}px`;
+    }
+
+    if (baseHeight > 0) {
+      svg.style.height = `${baseHeight * scale}px`;
+    }
+
+    zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+    content.dataset.scale = String(scale);
+    zoomState.scale = scale;
+  }
+
+  function initializeLightboxSvg() {
+    const lightbox = document.querySelector(".mermaid-lightbox");
+    const content = lightbox?.querySelector(".mermaid-lightbox__content");
+    const svg = content?.querySelector("svg");
+
+    if (!(content instanceof HTMLDivElement) || !(svg instanceof SVGSVGElement)) {
+      return;
+    }
+
+    const viewBox = svg.viewBox?.baseVal;
+    const measuredWidth =
+      viewBox?.width ||
+      Number(svg.getAttribute("width")?.replace("px", "")) ||
+      svg.getBoundingClientRect().width ||
+      960;
+    const measuredHeight =
+      viewBox?.height ||
+      Number(svg.getAttribute("height")?.replace("px", "")) ||
+      svg.getBoundingClientRect().height ||
+      540;
+
+    svg.dataset.baseWidth = String(measuredWidth);
+    svg.dataset.baseHeight = String(measuredHeight);
+    svg.style.maxWidth = "none";
+    svg.style.width = `${measuredWidth}px`;
+    svg.style.height = `${measuredHeight}px`;
+    content.scrollTo({ top: 0, left: 0 });
+    updateLightboxScale(1);
+  }
+
+  function ensureLightbox() {
+    let lightbox = document.querySelector(".mermaid-lightbox");
+
+    if (lightbox instanceof HTMLDialogElement) {
+      return lightbox;
+    }
+
+    lightbox = document.createElement("dialog");
+    lightbox.className = "mermaid-lightbox";
+    lightbox.innerHTML = `
+      <div class="mermaid-lightbox__frame">
+        <div class="mermaid-lightbox__toolbar">
+          <p class="mermaid-lightbox__hint">Preview</p>
+          <div class="mermaid-lightbox__controls">
+            <button class="mermaid-lightbox__control" data-action="zoom-out" type="button" aria-label="Zoom out">
+              -
+            </button>
+            <button class="mermaid-lightbox__control mermaid-lightbox__zoom-label" data-action="reset" type="button" aria-label="Reset zoom">
+              100%
+            </button>
+            <button class="mermaid-lightbox__control" data-action="zoom-in" type="button" aria-label="Zoom in">
+              +
+            </button>
+            <button class="mermaid-lightbox__close" type="button" aria-label="Close mermaid preview">
+              Close
+            </button>
+          </div>
+        </div>
+        <div class="mermaid-lightbox__content" role="document"></div>
+      </div>
+    `;
+    document.body.append(lightbox);
+
+    lightbox.addEventListener("click", (event) => {
+      if (event.target === lightbox) {
+        lightbox.close();
+      }
+    });
+
+    lightbox
+      .querySelector(".mermaid-lightbox__close")
+      ?.addEventListener("click", () => lightbox.close());
+
+    lightbox.addEventListener("close", () => {
+      const content = lightbox.querySelector(".mermaid-lightbox__content");
+      if (content instanceof HTMLDivElement) {
+        content.replaceChildren();
+      }
+      zoomState.scale = 1;
+    });
+
+    return lightbox;
+  }
+
+  function bindLightbox() {
+    if (lightboxBound) {
+      return;
+    }
+
+    const lightbox = ensureLightbox();
+    const content = lightbox.querySelector(".mermaid-lightbox__content");
+    const zoomInButton = lightbox.querySelector("[data-action='zoom-in']");
+    const zoomOutButton = lightbox.querySelector("[data-action='zoom-out']");
+    const resetButton = lightbox.querySelector("[data-action='reset']");
+
+    if (!(content instanceof HTMLDivElement)) {
+      return;
+    }
+
+    zoomInButton?.addEventListener("click", () => updateLightboxScale(zoomState.scale + 0.2));
+    zoomOutButton?.addEventListener("click", () => updateLightboxScale(zoomState.scale - 0.2));
+    resetButton?.addEventListener("click", () => updateLightboxScale(1));
+
+    document.addEventListener("click", (event) => {
+      const trigger = event.target instanceof Element
+        ? event.target.closest(".mermaid-figure svg")
+        : null;
+
+      if (!trigger) {
+        return;
+      }
+
+      const figure = trigger.closest(".mermaid-figure");
+
+      if (!figure) {
+        return;
+      }
+
+      content.replaceChildren();
+      content.append(figure.cloneNode(true));
+      lightbox.showModal();
+      requestAnimationFrame(() => initializeLightboxSvg());
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (!lightbox.open) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        lightbox.close();
+        return;
+      }
+
+      if (event.key === "+" || event.key === "=") {
+        updateLightboxScale(zoomState.scale + 0.2);
+        return;
+      }
+
+      if (event.key === "-") {
+        updateLightboxScale(zoomState.scale - 0.2);
+        return;
+      }
+
+      if (event.key === "0") {
+        updateLightboxScale(1);
+      }
+    });
+
+    lightbox.addEventListener(
+      "wheel",
+      (event) => {
+        if (!lightbox.open || !event.ctrlKey) {
+          return;
+        }
+
+        event.preventDefault();
+        const delta = event.deltaY < 0 ? 0.15 : -0.15;
+        updateLightboxScale(zoomState.scale + delta);
+      },
+      { passive: false }
+    );
+
+    lightboxBound = true;
+  }
+
+  async function renderMermaid() {
+    const codeBlocks = Array.from(
+      document.querySelectorAll("pre[data-language='mermaid'], pre code.language-mermaid")
+    );
+
+    if (codeBlocks.length === 0) {
+      return;
+    }
+
+    const mermaidModule = await import(
+      "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"
+    );
+    const mermaid = mermaidModule.default;
+
+    if (!initialized) {
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "loose",
+        theme: "neutral"
+      });
+      initialized = true;
+    }
+
+    const nodes = [];
+
+    for (const node of codeBlocks) {
+      const pre = node instanceof HTMLPreElement ? node : node.closest("pre");
+      if (!pre) {
+        continue;
+      }
+
+      if (pre.dataset.mermaidProcessed === "true") {
+        continue;
+      }
+
+      const figure = document.createElement("figure");
+      figure.className = "mermaid-figure";
+      figure.textContent = pre.textContent?.trim() ?? "";
+      pre.dataset.mermaidProcessed = "true";
+      pre.replaceWith(figure);
+      nodes.push(figure);
+    }
+
+    if (nodes.length > 0) {
+      await mermaid.run({ nodes });
+    }
+
+    bindLightbox();
+  }
+
+  document.addEventListener("DOMContentLoaded", renderMermaid, { once: true });
+  document.addEventListener("astro:page-load", renderMermaid);
+</script>

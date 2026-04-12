@@ -1,0 +1,37 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PostCard from "../../components/PostCard.astro";
+import { getAllTags, getPostsByTag, sortPosts } from "../../utils/posts";
+
+export async function getStaticPaths() {
+  const posts = sortPosts(
+    await getCollection("blog", ({ data }) => data.publish && !data.draft)
+  );
+  const tags = getAllTags(posts);
+  return tags.map(({ tag }) => ({
+    params: { tag: encodeURIComponent(tag) },
+    props: { tag }
+  }));
+}
+
+const { tag } = Astro.props;
+const posts = sortPosts(
+  await getCollection("blog", ({ data }) => data.publish && !data.draft)
+);
+const filtered = getPostsByTag(posts, tag);
+---
+
+<BaseLayout title={`Tag: ${tag}`} description={`Posts tagged with ${tag}.`}>
+  <section class="page-intro">
+    <p class="section__eyebrow">Tag archive</p>
+    <h1>#{tag}</h1>
+    <p>{filtered.length} published post(s) in this topic.</p>
+  </section>
+
+  <section class="section">
+    <div class="post-grid">
+      {filtered.map((post) => <PostCard post={post} />)}
+    </div>
+  </section>
+</BaseLayout>

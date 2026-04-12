@@ -1,0 +1,30 @@
+{
+  "name": "iwatchme.github.io",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/ensure-rollup-native.mjs",
+    "dev": "node scripts/dev-notes.mjs",
+    "dev:astro": "astro dev",
+    "prebuild": "node scripts/ensure-rollup-native.mjs",
+    "build": "astro build",
+    "prepreview": "node scripts/ensure-rollup-native.mjs",
+    "preview": "astro preview",
+    "sync:notes": "node scripts/sync-notes-vault.mjs",
+    "sync:obsidian": "node scripts/sync-obsidian.mjs"
+  },
+  "dependencies": {
+    "@astrojs/rss": "^4.0.18",
+    "@astrojs/sitemap": "^3.7.2",
+    "astro": "^5.0.0",
+    "fast-glob": "^3.3.3",
+    "fs-extra": "^11.3.4",
+    "gray-matter": "^4.0.3",
+    "slugify": "^1.6.9"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.60.1",
+    "@rollup/rollup-linux-x64-gnu": "^4.60.1"
+  }
+}

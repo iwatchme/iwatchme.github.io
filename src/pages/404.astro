@@ -1,0 +1,17 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="404" description="The page you requested could not be found.">
+  <section class="not-found">
+    <p class="section__eyebrow">404</p>
+    <h1>That page is not here.</h1>
+    <p>
+      It may have moved during the rebuild from the old static archive to the new Astro-driven blog.
+    </p>
+    <div class="hero__actions">
+      <a class="button button--primary" href="/">Back home</a>
+      <a class="button button--secondary" href="/archives/">Open archives</a>
+    </div>
+  </section>
+</BaseLayout>

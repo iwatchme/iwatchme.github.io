@@ -1,0 +1,27 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { formatDate, getPostSummary, getPostUrl, getTagUrl } from "../utils/posts";
+import TagChip from "./TagChip.astro";
+
+const { post } = Astro.props as { post: CollectionEntry<"blog"> };
+const summary = getPostSummary(post);
+---
+
+<article class="post-card">
+  <div class="post-card__meta">
+    <time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
+    <span>{post.data.tags.length} tags</span>
+  </div>
+  <h2 class="post-card__title">
+    <a href={getPostUrl(post)}>{post.data.title}</a>
+  </h2>
+  {summary && <p class="post-card__description">{summary}</p>}
+  <div class="post-card__footer">
+    <div class="post-card__tags">
+      {post.data.tags.map((tag) => <TagChip tag={tag} href={getTagUrl(tag)} />)}
+    </div>
+    <a class="post-card__link" href={getPostUrl(post)}>
+      Read article
+    </a>
+  </div>
+</article>

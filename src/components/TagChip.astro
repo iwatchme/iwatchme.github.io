@@ -1,0 +1,8 @@
+---
+const { tag, href, count } = Astro.props;
+---
+
+<a class="tag-chip" href={href}>
+  <span class="tag-chip__label">#{tag}</span>
+  {typeof count === "number" && <span class="tag-chip__count">{count}</span>}
+</a>
