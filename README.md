@@ -104,6 +104,8 @@ In the repository settings:
 2. Set `Source` to `GitHub Actions`
 3. Keep the default environment name `github-pages`
 
+If `Source` is still set to `Deploy from a branch`, GitHub will try to run a Jekyll build against files like `src/layouts/BaseLayout.astro` and fail with YAML front matter errors.
+
 Official references:
 
 - [Astro GitHub Pages deployment guide](https://docs.astro.build/zh-cn/guides/deploy/github/)
